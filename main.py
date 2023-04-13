@@ -29,8 +29,8 @@ def main():
         print('''
 ==================================================
 =                    < MENU >                    =
-=   1. Select Interface        2. Show Routes    =
-=   3. ARP Scan                4. ARP Spoofing   =
+=   1. Select Interface   2. Show Routing Table  =
+=   3. ARP Scan           4. ARP Spoofing        =
 =                                                =
 =   0. Exit                                      =
 ==================================================
