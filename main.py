@@ -1,5 +1,17 @@
 import os, sys
 
+print("  _   _      _   _____                     ")
+print(" | \ | | ___| |_|  ___|__  _ __ __ _  ___  ")
+print(" |  \| |/ _ \ __| |_ / _ \| '__/ _` |/ _ \ ")
+print(" | |\  |  __/ |_|  _| (_) | | | (_| |  __/ ")
+print(" |_| \_|\___|\__|_|  \___/|_|  \__, |\___| ")
+print("                               |___/       \n")
+
+if sys.version_info < (3, 10):
+    print('[-] Python 3.10 or higher is required. Current version is ' + 
+        str(sys.version_info[0]) + '.' + str(sys.version_info[1]) + '.' + str(sys.version_info[2]) + '.')
+    sys.exit(1)
+
 try:
     import scapy.all as scapy
 except ModuleNotFoundError:
@@ -14,14 +26,6 @@ from src.utils import *
 
 
 def main():
-    print('''
-    _   _      _   _____                    
-    | \ | | ___| |_|  ___|__  _ __ __ _  ___ 
-    |  \| |/ _ \ __| |_ / _ \| '__/ _` |/ _ \\
-    | |\  |  __/ |_|  _| (_) | | | (_| |  __/
-    |_| \_|\___|\__|_|  \___/|_|  \__, |\___|
-                                |___/      
-    ''')
 
     interface = None
 

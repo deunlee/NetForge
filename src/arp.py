@@ -45,13 +45,17 @@ class NF_ARP_Tool:
 
 
     def arp_spoof(self, target_ip=None, gateway_ip=None): # str | None, str | None
-        if not gateway_ip:
-            default_ip = get_ipv4_gateway(self.interface)
-            gateway_ip = input(f'[?] Enter Gateway IP {f"({default_ip}) " if default_ip else ""}: ').strip()
-            if gateway_ip == '': gateway_ip = default_ip
-        if not target_ip:
-            target_ip = input('[?] Enter Target IP : ').strip()
-
+        try:
+            if not gateway_ip:
+                default_ip = get_ipv4_gateway(self.interface)
+                gateway_ip = input(f'[?] Enter Gateway IP {f"({default_ip}) " if default_ip else ""}: ').strip()
+                if gateway_ip == '': gateway_ip = default_ip
+            if not target_ip:
+                target_ip = input('[?] Enter Target IP : ').strip()
+        except KeyboardInterrupt:
+            print()
+            return
+        
         if not is_valid_ipv4(gateway_ip):
             print('\n[-] Gateway IP is invalid.')
             return
