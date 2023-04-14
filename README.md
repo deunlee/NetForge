@@ -7,6 +7,6 @@ pip install -r requirements.txt
 python ./main.py
 ```
 
-- Python 3.8+
+- Python 3.10+
 - Scapy 2.5.0+
 

@@ -5,7 +5,7 @@ from scapy.interfaces import NetworkInterface, NetworkInterfaceDict
 from src.utils import *
 
 
-class NetForge_Interface:
+class NF_Interface:
     def __init__(self, interface: NetworkInterface | None = None):
         self.interface = interface # selected interface
 
@@ -85,7 +85,7 @@ class NetForge_Interface:
  |   (1) Select Interface             (2) Show Routing Table         |
  |                                                                   |
  |   (3) Show Forwarding Status                                      |
- |   (4) Enable Forwarding            (5) Disable Forwarding         |
+ |   (4) Enable Packet Forwarding     (5) Disable Packet Forwarding  |
  |                                                                   |
  |   (0) Back to Main Menu                                           |
  |                                                                   |
