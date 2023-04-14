@@ -1,6 +1,6 @@
 import os, sys, platform, time, itertools, re
 import scapy.all as scapy
-from scapy.all import get_working_if, ltoa, conf
+from scapy.all import conf
 
 def run_powershell(command: str, hide_output: bool = True) -> bool:
     return_code = os.system(f'powershell -command "{command}" {"> nul" if hide_output else ""} 2> nul'.replace('\n', ' '))

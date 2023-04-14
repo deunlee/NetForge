@@ -44,7 +44,7 @@ class NF_Interface:
         routes = list(filter(lambda x: x[3] == interface.network_name and x[2] == '0.0.0.0', routes))
         # '0.0.0.0' for connected route
         if len(routes):
-            return f'{ltoa(routes[0][0])}/{bin(routes[0][1]).count("1")}'
+            return f'{scapy.ltoa(routes[0][0])}/{bin(routes[0][1]).count("1")}'
         return None
 
 
