@@ -1,16 +1,109 @@
 import os, sys, time, itertools
 import scapy.all as scapy
 from scapy.all import Ether, ARP, IP, srp, send, atol, conf
+from scapy.interfaces import NetworkInterface
 
 from .utils import *
-
-class NF_ARP_Tool:
-    def __init__(self, interface): 
-        self.interface = interface # NetworkInterface
+from .interface import NF_Interface
 
 
-    def arp_scan(self): # NetworkInterface | None
-        network = get_network_addr_with_cidr(self.interface)
+class NF_ARPTool:
+    def __init__(self, interface: NetworkInterface): 
+        self.interface = interface
+
+    #========================= MENUS =========================#
+
+    def menu(self) -> None:
+        def print_menu():
+            selected = self.interface.description if self.interface else 'not selected'
+            selected = str_fixed_len(selected, 52)
+            info = ''
+            if self.interface:
+                network = NF_Interface.get_network_address_with_cidr(self.interface)
+                gateway = NF_Interface.get_gateway_address(self.interface)
+                info = '\n |   Network: {:18}      Gateway: {:15}       |'.format(
+                    network if network else 'no network', gateway if gateway else 'no gateway'
+                )
+            print(f'''
+ +-------------------------------------------------------------------+
+ |                         < ARP Tool Menu >                         |
+ +-------------------------------------------------------------------+
+ |   Interface: {selected} |{info}
+ +-------------------------------------------------------------------+
+ |                                                                   |
+ |   (1) Show ARP Cache Table         (2) IP to MAC Address          |
+ |                                                                   |
+ |   (3) ARP Scanning                 (4) ARP Spoofing               |
+ |                                                                   |
+ |   (0) Back to Main Menu                                           |
+ |                                                                   |
+ +-------------------------------------------------------------------+\n''')
+
+        print_menu()
+        while True:
+            try:
+                i = input('[?] Enter menu number : ')
+            except KeyboardInterrupt:
+                print()
+                break
+            print()
+
+            if i == '1':
+                self.show_arp_cache_table()
+            elif i == '2':
+                ip = input('[?] Enter a IP address : ').strip()
+                print()
+                if not is_valid_ipv4(ip):
+                    print('[-] IP address entered is invalid.\n')
+                else:
+                    self.get_mac_address_by_ip(ip)
+                    print()
+            elif i == '3':
+                self.arp_scan()
+                print()
+            elif i == '4':
+                self.arp_scan()
+                print()
+            elif i == '0':
+                break
+            else:
+                continue
+
+            try:
+                input('[?] Press enter key to back to menu. ')
+            except KeyboardInterrupt:
+                print()
+            print_menu()
+
+    #========================= FUNCS =========================#
+
+    def show_arp_cache_table(self) -> None:
+        if is_windows():
+            print('[*] Retrieving ARP cache table of selected interface...')
+
+            run_powershell('''Get-NetNeighbor -AddressFamily IPv4 -InterfaceIndex 24
+                | Sort-Object -Property IPAddress
+                | Where-Object {$_.State -ne 'Unreachable'}''', hide_output=False)
+        else:
+            os.system('arp -a')
+            print()
+
+
+    def get_mac_address_by_ip(self, ip: str) -> str | None:
+        print(f'[*] Finding which device has {ip}...')
+        
+        ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=ip), timeout=5, iface=self.interface, verbose=0)
+        if len(ans) == 0:
+            print('[-] Device not found. Please check the IP.')
+            return None
+
+        mac = ans[0][1][ARP].hwsrc # [0]=first packet, [1]=recv
+        print(f'[+] Device has been found with "{mac}" ({conf.manufdb._get_manuf(mac)})')
+        return mac
+
+
+    def arp_scan(self) -> None:
+        network = NF_Interface.get_network_address_with_cidr(self.interface)
         if not network:
             print('[-] Could not obtain network address. Scanning aborted.')
             return
@@ -30,24 +123,10 @@ class NF_ARP_Tool:
         print('\n[+] ARP scan completed.')
 
 
-
-    def get_mac_by_ip_using_arp(self, ip): # str -> str | None
-        print(f'[*] Finding which device has {ip}...')
-        
-        ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=ip), timeout=5, iface=self.interface, verbose=0)
-        if len(ans) == 0:
-            print('[-] Device not found. Please check the IP.')
-            return None
-        
-        mac = ans[0][1][ARP].hwsrc # [0]=first packet, [1]=recv
-        print(f'[+] Device has been found with "{mac}" ({conf.manufdb._get_manuf(mac)})')
-        return mac
-
-
-    def arp_spoof(self, target_ip=None, gateway_ip=None): # str | None, str | None
+    def arp_spoof(self, target_ip: str | None = None, gateway_ip: str | None = None):
         try:
             if not gateway_ip:
-                default_ip = get_ipv4_gateway(self.interface)
+                default_ip = NF_Interface.get_gateway_address(self.interface)
                 gateway_ip = input(f'[?] Enter Gateway IP {f"({default_ip}) " if default_ip else ""}: ').strip()
                 if gateway_ip == '': gateway_ip = default_ip
             if not target_ip:
@@ -73,6 +152,10 @@ class NF_ARP_Tool:
         
         print('\n[+] Found all MAC addresses. Now sending forged packets...')
         print('[*] To stop ARP spoofing, press Ctrl+C keys.\n')
+
+        print('[*] Packet forwarding is required to see packets going to and from the target.')
+        print('[*] Packet forwarding can be enabled in the interface menu.\n')
+
 
         def get_mac(ip):
             return target_mac if ip == target_ip else gateway_mac
