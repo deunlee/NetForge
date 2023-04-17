@@ -78,7 +78,10 @@ class NF_ARPTool:
     #========================= FUNCS =========================#
 
     def get_manufacturer_by_mac(self, mac: str) -> str:
-        return scapy.conf.manufdb._get_manuf(mac)
+        result = scapy.conf.manufdb._get_manuf(mac)
+        if result == mac:
+            return 'unknown device'
+        return result
 
 
     def show_arp_cache_table(self) -> None:
