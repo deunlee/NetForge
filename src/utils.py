@@ -1,4 +1,4 @@
-import os, sys, platform, time, itertools, re
+import os, platform, re, random
 import scapy.all as scapy
 from scapy.all import conf
 
@@ -45,4 +45,11 @@ REGEX_URL = re.compile(
 
 def is_valid_url(url: str) -> bool:
     return re.match(REGEX_URL, url) != None
+
+
+
+CHAR_MAP = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+
+def get_random_string(length: int, chars: str = CHAR_MAP):
+    return ''.join(random.choice(chars) for _ in range(length))
 

