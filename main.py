@@ -20,13 +20,15 @@ except ModuleNotFoundError:
     print('[-] Some libraries are not installed.')
     print('[-] Please install them with the following command.\n')
     print('[*] pip install -r requirements.txt\n')
-    sys.exit()
+    sys.exit(1)
 
 
 from src.utils import *
 from src.interface import NF_Interface
 from src.arp       import NF_ARPTool
 from src.dns       import NF_DNSTool
+from src.tcp       import NF_TCPUDPTool
+from src.http      import NF_HTTPTool
 
 
 def main():
@@ -42,6 +44,8 @@ def main():
  |                                                                   |
  |   (3) ARP Tools                    (4) DNS Tools                  |
  |                                                                   |
+ |   (5) TCP/UDP Attack (Layer 4)     (6) HTTP Attack (Layer 7)      |
+ |                                                                   |
  |   (0) Exit                                                        |
  |                                                                   |
  +-------------------------------------------------------------------+\n''')
@@ -55,6 +59,10 @@ def main():
             break
         print()
 
+        if i == '0':
+            print('[*] Exit...\n')
+            break
+
         if i == '1':
             nf_interface.select_interface()
         elif i == '2':
@@ -63,17 +71,23 @@ def main():
             if not nf_interface.get_selected_interface():
                 print('[-] Please select an interface first.')
             else:
-                nf_arp_tool = NF_ARPTool(nf_interface.get_selected_interface())
-                nf_arp_tool.menu()
+                tool = NF_ARPTool(nf_interface.get_selected_interface())
+                tool.menu()
         elif i == '4':
             if not nf_interface.get_selected_interface():
                 print('[-] Please select an interface first.')
             else:
-                nf_dns_tool = NF_DNSTool(nf_interface.get_selected_interface())
-                nf_dns_tool.menu()
-        elif i == '0':
-            print('[*] Exit...\n')
-            break
+                tool = NF_DNSTool(nf_interface.get_selected_interface())
+                tool.menu()
+        elif i == '5':
+            if not nf_interface.get_selected_interface():
+                print('[-] Please select an interface first.')
+            else:
+                tool = NF_TCPUDPTool(nf_interface.get_selected_interface())
+                tool.menu()
+        elif i == '6':
+            tool = NF_HTTPTool()
+            tool.menu()
         else:
             print('[-] Please select the menu again.')
 
