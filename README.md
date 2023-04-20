@@ -12,7 +12,12 @@ python ./main.py
 
 
 
-### This code is written for research purposes only.
-### The responsibility for any problems resulting from abuse lies with the user of this tool and not with the developer.
-### Please use it only for your own device, and if you use it for an unauthorized device, you may be punished by related laws.
+## FOR RESEARCH PURPOSES ONLY
+- The responsibility for any problems resulting from abuse lies with the user of this tool and not with the developer.
+- Please use it only for your own device, and if you use it for an unauthorized device, you may be punished by related laws.
+
+
+## License
+[GPL-2.0](./LICENSE)
+
 
