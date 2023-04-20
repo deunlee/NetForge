@@ -12,7 +12,7 @@ python ./main.py
 
 
 
-## FOR RESEARCH PURPOSES ONLY
+## FOR RESEARCH PURPOSE ONLY
 - The responsibility for any problems resulting from abuse lies with the user of this tool and not with the developer.
 - Please use it only for your own device, and if you use it for an unauthorized device, you may be punished by related laws.
 

